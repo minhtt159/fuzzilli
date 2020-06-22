@@ -42,12 +42,15 @@ Options:
     --minimizationLimit=n       : When minimizing corpus samples, keep at least this many instructions in the
                                   program. See Minimizer.swift for an overview of this feature (default: 0).
     --storagePath=path          : Path at which to store runtime files (crashes, corpus, etc.) to.
+    --exportStatistics          : If enabled, fuzzing statistics will be collected and saved to disk every 10 minutes.
+                                  Requires --storagePath.
     --exportState               : If enabled, the internal state of the fuzzer will be writen to disk every
                                   6 hours. Requires --storagePath.
     --importState=path          : Import a previously exported fuzzer state and resuming fuzzing from it.
     --networkMaster=host:port   : Run as master and accept connections from workers over the network. Note: it is
                                   *highly* recommended to run network fuzzers in an isolated network!
     --networkWorker=host:port   : Run as worker and connect to the specified master instance.
+    --dontFuzz                  : If used, this instace will not perform fuzzing. Can be useful for master instances.
     --noAbstractInterpretation  : Disable abstract interpretation of FuzzIL programs during fuzzing. See
                                   Configuration.swift for more details.
 """)
@@ -79,9 +82,11 @@ let maxCorpusSize = args.int(for: "--maxCorpusSize") ?? Int.max
 let consecutiveMutations = args.int(for: "--consecutiveMutations") ?? 5
 let minimizationLimit = args.uint(for: "--minimizationLimit") ?? 0
 let storagePath = args["--storagePath"]
+let exportStatistics = args.has("--exportStatistics")
 let exportState = args.has("--exportState")
 let stateImportFile = args["--importState"]
 let disableAbstractInterpreter = args.has("--noAbstractInterpretation")
+let dontFuzz = args.has("--dontFuzz")
 
 let logLevelByName: [String: LogLevel] = ["verbose": .verbose, "info": .info, "warning": .warning, "error": .error, "fatal": .fatal]
 guard let logLevel = logLevelByName[logLevelName] else {
@@ -91,6 +96,11 @@ guard let logLevel = logLevelByName[logLevelName] else {
 
 if exportState && storagePath == nil {
     print("--exportState requires --storagePath")
+    exit(-1)
+}
+
+if exportStatistics && storagePath == nil {
+    print("--exportStatistics requires --storagePath")
     exit(-1)
 }
 
@@ -135,6 +145,7 @@ let config = Configuration(timeout: UInt32(timeout),
                            crashTests: profile.crashTests,
                            isMaster: networkMasterParams != nil,
                            isWorker: networkWorkerParams != nil,
+                           isFuzzing: !dontFuzz,
                            minimizationLimit: minimizationLimit,
                            useAbstractInterpretation: !disableAbstractInterpreter)
 
@@ -165,7 +176,10 @@ let evaluator = ProgramCoverageEvaluator(runner: runner)
 let environment = JavaScriptEnvironment(additionalBuiltins: profile.additionalBuiltins, additionalObjectGroups: [])
 
 // A lifter to translate FuzzIL programs to JavaScript.
-let lifter = JavaScriptLifter(prefix: profile.codePrefix, suffix: profile.codeSuffix, inliningPolicy: InlineOnlyLiterals())
+let lifter = JavaScriptLifter(prefix: profile.codePrefix,
+                              suffix: profile.codeSuffix,
+                              inliningPolicy: InlineOnlyLiterals(),
+                              ecmaVersion: profile.ecmaVersion)
 
 // Corpus managing interesting programs that have been found during fuzzing.
 let corpus = Corpus(minSize: minCorpusSize, maxSize: maxCorpusSize, minMutationsPerSample: minMutationsPerSample)
@@ -197,8 +211,11 @@ fuzzer.queue.addOperation {
 
     // Store samples to disk if requested.
     if let path = storagePath {
-        let stateExportInterval = exportState ? 6 * Hours : nil
-        fuzzer.addModule(Storage(for: fuzzer, storageDir: path, stateExportInterval: stateExportInterval))
+        fuzzer.addModule(Storage(for: fuzzer,
+                                 storageDir: path,
+                                 stateExportInterval: exportState ? 6 * Hours : nil,
+                                 statisticsExportInterval: exportStatistics ? 10 * Minutes : nil
+        ))
     }
 
     // Synchronize over the network if requested.
