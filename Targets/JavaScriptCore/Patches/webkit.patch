@@ -1,8 +1,8 @@
 diff --git a/Source/JavaScriptCore/jsc.cpp b/Source/JavaScriptCore/jsc.cpp
-index ef8044b535f..21337cb98ba 100644
+index 7515bd36c75..fc837dc2b7b 100644
 --- a/Source/JavaScriptCore/jsc.cpp
 +++ b/Source/JavaScriptCore/jsc.cpp
-@@ -152,7 +152,92 @@ struct MemoryFootprint {
+@@ -150,7 +150,92 @@ struct MemoryFootprint {
  #if !defined(PATH_MAX)
  #define PATH_MAX 4096
  #endif
@@ -95,7 +95,7 @@ index ef8044b535f..21337cb98ba 100644
  using namespace JSC;
  
  namespace {
-@@ -350,6 +435,7 @@ static EncodedJSValue JSC_HOST_CALL functionFlashHeapAccess(JSGlobalObject*, Cal
+@@ -348,6 +433,7 @@ static EncodedJSValue JSC_HOST_CALL functionFlashHeapAccess(JSGlobalObject*, Cal
  static EncodedJSValue JSC_HOST_CALL functionDisableRichSourceInfo(JSGlobalObject*, CallFrame*);
  static EncodedJSValue JSC_HOST_CALL functionMallocInALoop(JSGlobalObject*, CallFrame*);
  static EncodedJSValue JSC_HOST_CALL functionTotalCompileTime(JSGlobalObject*, CallFrame*);
@@ -103,7 +103,7 @@ index ef8044b535f..21337cb98ba 100644
  
  static EncodedJSValue JSC_HOST_CALL functionSetUnhandledRejectionCallback(JSGlobalObject*, CallFrame*);
  static EncodedJSValue JSC_HOST_CALL functionAsDoubleNumber(JSGlobalObject*, CallFrame*);
-@@ -620,6 +706,8 @@ private:
+@@ -618,6 +704,8 @@ private:
          addFunction(vm, "mallocInALoop", functionMallocInALoop, 0);
          addFunction(vm, "totalCompileTime", functionTotalCompileTime, 0);
  
@@ -112,7 +112,7 @@ index ef8044b535f..21337cb98ba 100644
          addFunction(vm, "setUnhandledRejectionCallback", functionSetUnhandledRejectionCallback, 1);
  
          addFunction(vm, "asDoubleNumber", functionAsDoubleNumber, 1);
-@@ -1250,6 +1338,54 @@ fail:
+@@ -1248,6 +1336,54 @@ fail:
  
  EncodedJSValue JSC_HOST_CALL functionPrintStdOut(JSGlobalObject* globalObject, CallFrame* callFrame) { return printInternal(globalObject, callFrame, stdout); }
  EncodedJSValue JSC_HOST_CALL functionPrintStdErr(JSGlobalObject* globalObject, CallFrame* callFrame) { return printInternal(globalObject, callFrame, stderr); }
@@ -167,7 +167,7 @@ index ef8044b535f..21337cb98ba 100644
  
  EncodedJSValue JSC_HOST_CALL functionDebug(JSGlobalObject* globalObject, CallFrame* callFrame)
  {
-@@ -1889,7 +2025,7 @@ EncodedJSValue JSC_HOST_CALL functionDollarAgentStart(JSGlobalObject* globalObje
+@@ -1898,7 +2034,7 @@ EncodedJSValue JSC_HOST_CALL functionDollarAgentStart(JSGlobalObject* globalObje
              commandLine.m_interactive = false;
              runJSC(
                  commandLine, true,
@@ -176,7 +176,7 @@ index ef8044b535f..21337cb98ba 100644
                      // Notify the thread that started us that we have registered a worker.
                      {
                          auto locker = holdLock(didStartLock);
-@@ -2724,7 +2860,7 @@ static void checkException(GlobalObject* globalObject, bool isLastFile, bool has
+@@ -2770,7 +2906,7 @@ static void checkException(GlobalObject* globalObject, bool isLastFile, bool has
          success = success && checkUncaughtException(vm, globalObject, (hasException) ? value : JSValue(), options);
  }
  
@@ -185,7 +185,7 @@ index ef8044b535f..21337cb98ba 100644
  {
      Vector<Script>& scripts = options.m_scripts;
      String fileName;
-@@ -2740,7 +2876,21 @@ static void runWithOptions(GlobalObject* globalObject, CommandLine& options, boo
+@@ -2786,7 +2922,21 @@ static void runWithOptions(GlobalObject* globalObject, CommandLine& options, boo
      for (size_t i = 0; i < scripts.size(); i++) {
          JSInternalPromise* promise = nullptr;
          bool isModule = options.m_module || scripts[i].scriptType == Script::ScriptType::Module;
@@ -208,9 +208,9 @@ index ef8044b535f..21337cb98ba 100644
              fileName = scripts[i].argument;
              if (scripts[i].strictMode == Script::StrictMode::Strict)
                  scriptBuffer.append("\"use strict\";\n", strlen("\"use strict\";\n"));
-@@ -3111,7 +3261,40 @@ int runJSC(const CommandLine& options, bool isWorker, const Func& func)
-     
-     VM& vm = VM::create(LargeHeap).leakRef();
+@@ -3187,7 +3337,40 @@ int runJSC(const CommandLine& options, bool isWorker, const Func& func)
+ #endif
+ 
      int result;
 -    bool success = true;
 +    bool success;
@@ -250,7 +250,7 @@ index ef8044b535f..21337cb98ba 100644
      GlobalObject* globalObject = nullptr;
      {
          JSLockHolder locker(vm);
-@@ -3122,7 +3305,7 @@ int runJSC(const CommandLine& options, bool isWorker, const Func& func)
+@@ -3198,7 +3381,7 @@ int runJSC(const CommandLine& options, bool isWorker, const Func& func)
  
          globalObject = GlobalObject::create(vm, GlobalObject::createStructure(vm, jsNull()), options.m_arguments);
          globalObject->setRemoteDebuggingEnabled(options.m_enableRemoteDebugging);
@@ -259,7 +259,7 @@ index ef8044b535f..21337cb98ba 100644
          vm.drainMicrotasks();
      }
      vm.promiseTimer->runRunLoop();
-@@ -3134,62 +3317,18 @@ int runJSC(const CommandLine& options, bool isWorker, const Func& func)
+@@ -3210,62 +3393,18 @@ int runJSC(const CommandLine& options, bool isWorker, const Func& func)
  
      result = success && (asyncTestExpectedPasses == asyncTestPasses) ? 0 : 3;
  
@@ -327,7 +327,7 @@ index ef8044b535f..21337cb98ba 100644
  
      vm.codeCache()->write(vm);
  
-@@ -3271,12 +3410,12 @@ int jscmain(int argc, char** argv)
+@@ -3359,12 +3498,12 @@ int jscmain(int argc, char** argv)
  
      int result = runJSC(
          options, false,
