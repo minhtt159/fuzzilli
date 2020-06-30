@@ -65,6 +65,7 @@ public class JavaScriptLifter: ComponentBase, Lifter {
         func expr(for v: Variable) -> Expression {
             return expressions[v] ?? Identifier.new(v.identifier)
         }
+
         
         w.emitBlock(prefix)
         
@@ -76,6 +77,8 @@ public class JavaScriptLifter: ComponentBase, Lifter {
             func input(_ idx: Int) -> Expression {
                 return expr(for: instr.input(idx))
             }
+            
+            // Helper function to retrieve the value of a literal
             func value(_ idx: Int) -> Any? {
                 switch analyzer.definition(of: instr.input(idx)).operation {
                 case let op as LoadInteger:
@@ -88,6 +91,23 @@ public class JavaScriptLifter: ComponentBase, Lifter {
                     return nil
                 }
             }
+            
+            // Helper functions to lift a function definition
+            func liftFunctionDefinitionParameters(_ op: BeginAnyFunctionDefinition) -> String {
+                assert(instr.operation === op)
+                var identifiers = instr.innerOutputs.map({ $0.identifier })
+                if op.hasRestParam, let last = instr.innerOutputs.last {
+                    identifiers[identifiers.endIndex - 1] = "..." + last.identifier
+                }
+                return identifiers.joined(separator: ",")
+            }
+            func liftFunctionDefinitionBegin(_ op: BeginAnyFunctionDefinition, _ keyword: String) {
+                assert(instr.operation === op)
+                let params = liftFunctionDefinitionParameters(op)
+                w.emit("\(keyword) \(instr.output)(\(params)) {")
+                w.increaseIndentionLevel()
+            }
+        
             
             // Interpret to compute type information if requested
             if options.contains(.dumpTypes) {
@@ -210,25 +230,39 @@ public class JavaScriptLifter: ComponentBase, Lifter {
             case is In:
                 output = BinaryExpression.new() <> input(0) <> " in " <> input(1)
                 
-            case let op as BeginFunctionDefinition:
-                var identifiers = instr.innerOutputs.map({ $0.identifier })
-                if op.hasRestParam, let last = instr.innerOutputs.last {
-                    identifiers[identifiers.endIndex - 1] = "..." + last.identifier
-                }
-
-                let params = identifiers.joined(separator: ",")
-                w.emit("function \(instr.output)(\(params)) {")
-                w.increaseIndentionLevel()
-                if (op.isJSStrictMode) {
-                    w.emit("'use strict'")
-                }
+            case let op as BeginPlainFunctionDefinition:
+                liftFunctionDefinitionBegin(op, "function")
                 
+            case let op as BeginStrictFunctionDefinition:
+                liftFunctionDefinitionBegin(op, "function")
+                w.emit("'use strict'")
+                
+            case let op as BeginArrowFunctionDefinition:
+                let params = liftFunctionDefinitionParameters(op)
+                w.emit("\(constDecl) \(instr.output) = (\(params)) => {")
+                w.increaseIndentionLevel()
+                
+            case let op as BeginGeneratorFunctionDefinition:
+                liftFunctionDefinitionBegin(op, "function*")
+        
+            case let op as BeginAsyncFunctionDefinition:
+                liftFunctionDefinitionBegin(op, "async function")
+                
+            case is EndAnyFunctionDefinition:
+                w.decreaseIndentionLevel()
+                w.emit("}")
+            
             case is Return:
                 w.emit("return \(input(0));")
                 
-            case is EndFunctionDefinition:
-                w.decreaseIndentionLevel()
-                w.emit("}")
+            case is Yield:
+                w.emit("yield \(input(0));")
+                
+            case is YieldEach:
+                w.emit("yield* \(input(0));")
+                
+            case is Await:
+                output = UnaryExpression.new() <> "await " <> input(0)
                 
             case is CallFunction:
                 let arguments = instr.inputs.dropFirst().map({ expr(for: $0).text })
@@ -273,12 +307,12 @@ public class JavaScriptLifter: ComponentBase, Lifter {
                 w.emit("\(instr.input(0)) = \(input(1));")
                 
             case let op as Compare:
-                output = BinaryExpression.new() <> input(0) <> " " <> op.comparator.token <> " " <> input(1)
+                output = BinaryExpression.new() <> input(0) <> " " <> op.op.token <> " " <> input(1)
                 
             case let op as Eval:
                 // Woraround until Strings implement the CVarArg protocol in the linux Foundation library...
                 // TODO can make this permanent, but then use different placeholder pattern
-                var string = op.string
+                var string = op.code
                 for v in instr.inputs {
                     let range = string.range(of: "%@")!
                     string.replaceSubrange(range, with: expr(for: v).text)

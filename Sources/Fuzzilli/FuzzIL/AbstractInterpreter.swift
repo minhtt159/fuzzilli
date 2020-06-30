@@ -37,9 +37,9 @@ public struct AbstractInterpreter {
     /// Abstractly execute the given instruction, thus updating type information.
     public mutating func execute(_ instr: Instruction) {
         switch instr.operation {
-        case is BeginFunctionDefinition:
+        case is BeginAnyFunctionDefinition:
             stack.append(currentState)
-        case is EndFunctionDefinition:
+        case is EndAnyFunctionDefinition:
             let functionState = stack.removeLast()
             let previousState = stack.removeLast()
             stack.append(merge(functionState, previousState))
@@ -284,6 +284,7 @@ public struct AbstractInterpreter {
                 set(instr.output, .primitive)
             case .Sub,
                  .Mul,
+                 .Exp,
                  .Div,
                  .Mod:
                 set(instr.output, .number)
@@ -291,7 +292,8 @@ public struct AbstractInterpreter {
                  .BitOr,
                  .Xor,
                  .LShift,
-                 .RShift:
+                 .RShift,
+                 .UnRShift:
                 set(instr.output, .integer)
             case .LogicAnd,
                  .LogicOr:
@@ -319,8 +321,13 @@ public struct AbstractInterpreter {
         case is LoadFromScope:
             set(instr.output, .unknown)
             
-        case let op as BeginFunctionDefinition:
+        case is Await:
+            // TODO if input type is known, set to input type and possibly unwrap the Promise
+            set(instr.output, .unknown)
+            
+        case let op as BeginAnyFunctionDefinition:
             let signature = op.signature
+            // TODO For generators and async functions, we might want to check (and fixup) the return type of the function
             set(instr.output, .function(signature))
             for (i, param) in instr.innerOutputs.enumerated() {
                 let paramType = signature.inputTypes[i]
@@ -334,7 +341,7 @@ public struct AbstractInterpreter {
                 }
                 set(param, varType)
             }
-            
+
         case is BeginFor:
             // Primitive type is currently guaranteed due to the structure of for loops
             set(instr.innerOutput, .primitive)

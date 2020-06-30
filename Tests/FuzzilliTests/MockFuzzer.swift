@@ -140,6 +140,8 @@ class MockEvaluator: ProgramEvaluator {
 
 /// Create a fuzzer instance usable for testing.
 func makeMockFuzzer(runner maybeRunner: ScriptRunner? = nil, environment maybeEnvironment: Environment? = nil, evaluator maybeEvaluator: ProgramEvaluator? = nil) -> Fuzzer {
+    dispatchPrecondition(condition: .onQueue(DispatchQueue.main))
+
     // The configuration of this fuzzer.
     let configuration = Configuration()
     
@@ -155,7 +157,7 @@ func makeMockFuzzer(runner maybeRunner: ScriptRunner? = nil, environment maybeEn
         CombineMutator(),
         JITStressMutator(),
     ]
-    let core = FuzzerCore(mutators: mutators, numConsecutiveMutations: 5)
+    let engine = MutationFuzzer(mutators: mutators, numConsecutiveMutations: 5)
     
     // The evaluator to score produced samples.
     let evaluator = maybeEvaluator ?? MockEvaluator()
@@ -164,7 +166,7 @@ func makeMockFuzzer(runner maybeRunner: ScriptRunner? = nil, environment maybeEn
     let environment = maybeEnvironment ?? MockEnvironment(builtins: ["Foo": .integer, "Bar": .object(), "Baz": .function()])
     
     // A lifter to translate FuzzIL programs to JavaScript.
-    let lifter = JavaScriptLifter(prefix: "", suffix: "", inliningPolicy: InlineOnlyLiterals())
+    let lifter = JavaScriptLifter(prefix: "", suffix: "", inliningPolicy: InlineOnlyLiterals(), ecmaVersion: .es6)
     
     // Corpus managing interesting programs that have been found during fuzzing.
     let corpus = Corpus(minSize: 1000, maxSize: 2000, minMutationsPerSample: 5)
@@ -175,14 +177,14 @@ func makeMockFuzzer(runner maybeRunner: ScriptRunner? = nil, environment maybeEn
     // Construct the fuzzer instance.
     let fuzzer = Fuzzer(configuration: configuration,
                         scriptRunner: runner,
-                        coreFuzzer: core,
+                        engine: engine,
                         codeGenerators: testCodeGenerators,
                         evaluator: evaluator,
                         environment: environment,
                         lifter: lifter,
                         corpus: corpus,
                         minimizer: minimizer,
-                        queue: OperationQueue.main)
+                        queue: DispatchQueue.main)
     
     fuzzer.initialize()
     return fuzzer
@@ -202,8 +204,14 @@ fileprivate let testCodeGenerators = WeightedList<CodeGenerator>([
     (ArrayLiteralGenerator,              1),
     (ObjectLiteralWithSpreadGenerator,   1),
     (ArrayLiteralWithSpreadGenerator,    1),
-    (FunctionDefinitionGenerator,        1),
+    (PlainFunctionGenerator,             1),
+    (StrictFunctionGenerator,            1),
+    (ArrowFunctionGenerator,             1),
+    (GeneratorFunctionGenerator,         1),
+    (AsyncFunctionGenerator,             1),
     (FunctionReturnGenerator,            1),
+    (YieldGenerator,                     1),
+    (AwaitGenerator,                     1),
     (PropertyRetrievalGenerator,         1),
     (PropertyAssignmentGenerator,        1),
     (PropertyRemovalGenerator,           1),

@@ -18,13 +18,13 @@
 ///
 /// * The empty program is valid
 /// * All input variables must have previously been defined
-/// * Variables have increasing numbers starting at zero and there are no holes (TODO check in isValid())
+/// * Variables have increasing numbers starting at zero and there are no holes
 /// * An instruction always produces a new output variable (SSA form)
 /// * The first input to a Copy operation must be a variable produced by a Phi operation (SSA form)
 ///
 /// These invariants can be verified at any time by calling check().
 ///
-public class Program: Collection, Codable {
+public final class Program: Collection {
     /// A program is simply a collection of instructions.
     private var instructions: [Instruction] = []
     
@@ -128,13 +128,13 @@ public class Program: Collection, Codable {
     }
 
     /// Checks if this program is valid.
-    public func check() -> CheckResult {
+    public func check(checkForVariableHoles: Bool = true) -> CheckResult {
         var definedVariables = VariableMap<Int>()
         var scopeCounter = 0
         var visibleScopes = [scopeCounter]
         var blockHeads = [Operation]()
         var phis = VariableSet()
-        
+
         for (idx, instr) in instructions.enumerated() {
             guard idx == instr.index else {
                 return .invalid("instruction \(idx) has wrong index \(String(describing: instr.index))")
@@ -183,7 +183,7 @@ public class Program: Collection, Codable {
                 }
                 definedVariables[output] = visibleScopes.last!
             }
-            
+
             // Special handling for Phi and Copy operations
             if instr.operation is Phi {
                 phis.insert(instr.output)
@@ -193,6 +193,14 @@ public class Program: Collection, Codable {
                 }
             }
         }
+
+        // Ensure that the variable map does not contain holes
+        if checkForVariableHoles {
+            guard !definedVariables.hasHoles() else {
+                return .invalid("variable map contains holes")
+            }
+        }
+
         return .valid
     }
     
@@ -211,5 +219,33 @@ public func ==(lhs: Program.CheckResult, rhs: Program.CheckResult) -> Bool {
         return a == b
     default:
         return false
+    }
+}
+
+extension Program: ProtobufConvertible {
+    typealias ProtoType = Fuzzilli_Protobuf_Program
+
+    func asProtobuf(with opCache: OperationCache?) -> ProtoType {
+        return ProtoType.with {
+            $0.instructions = instructions.map({ $0.asProtobuf(with: opCache) })
+        }
+    }
+    
+    func asProtobuf() -> ProtoType {
+        return asProtobuf(with: nil)
+    }
+    
+    convenience init(from proto: ProtoType, with opCache: OperationCache?) throws {
+        self.init()
+        for protoInstr in proto.instructions {
+            append(try Instruction(from: protoInstr, with: opCache))
+        }
+        guard check() == .valid else {
+            throw FuzzilliError.programDecodingError("Decoded program is not semantically valid")
+        }
+    }
+    
+    convenience init(from proto: ProtoType) throws {
+        try self.init(from: proto, with: nil)
     }
 }

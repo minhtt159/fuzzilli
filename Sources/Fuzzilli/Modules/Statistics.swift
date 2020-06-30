@@ -15,50 +15,8 @@
 import Foundation
 
 public class Statistics: Module {
-    public struct Data: Codable {
-        /// The total number of samples produced.
-        public fileprivate(set) var totalSamples = 0
-        
-        /// The number of valid samples produced.
-        public fileprivate(set) var validSamples = 0
-        
-        /// The number of intersting samples produced.
-        public fileprivate(set) var interestingSamples = 0
-        
-        /// The number of timed-out samples produced.
-        public fileprivate(set) var timedOutSamples = 0
-        
-        /// The number of crashes found.
-        public fileprivate(set) var crashingSamples = 0
-        
-        /// The total number of program executions.
-        public fileprivate(set) var totalExecs = 0
-        
-        /// The average size of produced programs over the last 1000 programs.
-        public fileprivate(set) var avgProgramSize = 0.0
-        
-        /// The current executions per second.
-        public fileprivate(set) var execsPerSecond = 0.0
-        
-        /// The number of workers connected directly or indirectly to this instance.
-        public fileprivate(set) var numWorkers = 0
-
-        /// The percentage of edges covered if doing coverage-guided fuzzing.
-        public fileprivate(set) var coverage = 0.0
-
-        /// The ratio of valid samples to produced samples.
-        public var successRate: Double {
-            return Double(validSamples) / Double(totalSamples)
-        }
-        
-        /// The ratio of timed-out samples to produced samples.
-        public var timeoutRate: Double {
-            return Double(timedOutSamples) / Double(totalSamples)
-        }
-    }
-    
     /// The data just for this instance.
-    private var ownData = Data()
+    private var ownData = Fuzzilli_Protobuf_Statistics()
     
     /// Information required to compute executions per second.
     private var currentExecs = 0.0
@@ -69,7 +27,7 @@ public class Statistics: Module {
     private var avgProgramSize = MovingAverage(n: 1000)
     
     /// All data from connected workers.
-    private var workers = [UUID: Data]()
+    private var workers = [UUID: Fuzzilli_Protobuf_Statistics]()
     
     /// The IDs of workers that are currently inactive.
     private var inactiveWorkers = Set<UUID>()
@@ -77,7 +35,7 @@ public class Statistics: Module {
     public init() {}
     
     /// Computes and returns the statistical data for this instance and all connected workers.
-    public func compute() -> Data {
+    public func compute() -> Fuzzilli_Protobuf_Statistics {
         assert(workers.count - inactiveWorkers.count == ownData.numWorkers)
         
         // Compute global statistics data
@@ -104,34 +62,34 @@ public class Statistics: Module {
     }
     
     public func initialize(with fuzzer: Fuzzer) {
-        fuzzer.events.CrashFound.observe { ev in
+        fuzzer.registerEventListener(for: fuzzer.events.CrashFound) { ev in
             self.ownData.crashingSamples += 1
         }
-        fuzzer.events.TimeOutFound.observe { _ in
+        fuzzer.registerEventListener(for: fuzzer.events.TimeOutFound) { _ in
             self.ownData.timedOutSamples += 1
         }
-        fuzzer.events.ValidProgramFound.observe { ev in
+        fuzzer.registerEventListener(for: fuzzer.events.ValidProgramFound) { ev in
             self.ownData.validSamples += 1
         }
-        fuzzer.events.PostExecute.observe { execution in
+        fuzzer.registerEventListener(for: fuzzer.events.PostExecute) { execution in
             self.ownData.totalExecs += 1
             self.currentExecs += 1
         }
-        fuzzer.events.InterestingProgramFound.observe { ev in
+        fuzzer.registerEventListener(for: fuzzer.events.InterestingProgramFound) { ev in
             self.ownData.interestingSamples += 1
             self.ownData.coverage = fuzzer.evaluator.currentScore
         }
-        fuzzer.events.ProgramGenerated.observe { program in
+        fuzzer.registerEventListener(for: fuzzer.events.ProgramGenerated) { program in
             self.ownData.totalSamples += 1
             self.avgProgramSize += program.size
             self.ownData.avgProgramSize = self.avgProgramSize.value
         }
-        fuzzer.events.WorkerConnected.observe { id in
+        fuzzer.registerEventListener(for: fuzzer.events.WorkerConnected) { id in
             self.ownData.numWorkers += 1
-            self.workers[id] = Data()
+            self.workers[id] = Fuzzilli_Protobuf_Statistics()
             self.inactiveWorkers.remove(id)
         }
-        fuzzer.events.WorkerDisconnected.observe { id in
+        fuzzer.registerEventListener(for: fuzzer.events.WorkerDisconnected) { id in
             self.ownData.numWorkers -= 1
             self.inactiveWorkers.insert(id)
         }
@@ -152,7 +110,19 @@ public class Statistics: Module {
     }
     
     /// Import statistics data from a worker.
-    public func importData(_ data: Data, from worker: UUID) {
-        workers[worker] = data
+    public func importData(_ stats: Fuzzilli_Protobuf_Statistics, from worker: UUID) {
+        workers[worker] = stats
+    }
+}
+
+extension Fuzzilli_Protobuf_Statistics {
+    /// The ratio of valid samples to produced samples.
+    public var successRate: Double {
+        return Double(validSamples) / Double(totalSamples)
+    }
+    
+    /// The ratio of timed-out samples to produced samples.
+    public var timeoutRate: Double {
+        return Double(timedOutSamples) / Double(totalSamples)
     }
 }

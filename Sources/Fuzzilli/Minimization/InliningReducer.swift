@@ -13,13 +13,12 @@
 // limitations under the License.
 
 /// Inlines functions at their callsite if possible to prevent deep nesting of functions.
+///
+/// This attempts to inline all types of functions, including generators and async functions. Often,
+/// this won't result in semantically valid JavaScript, but since we check the program for validity
+/// after every inlining attempt, that should be fine.
 struct InliningReducer: Reducer {
     var remaining = [Variable]()
-    private let fuzzer: Fuzzer
-    
-    init(_ fuzzer: Fuzzer) {
-        self.fuzzer = fuzzer
-    }
     
     func reduce(_ program: Program, with verifier: ReductionVerifier) -> Program {
         var functions = [Variable]()
@@ -27,11 +26,11 @@ struct InliningReducer: Reducer {
         var stack = [Variable]()
         for instr in program {
             switch instr.operation {
-            case is BeginFunctionDefinition:
+            case is BeginAnyFunctionDefinition:
                 functions.append(instr.output)
                 candidates[instr.output] = 0
                 stack.append(instr.output)
-            case is EndFunctionDefinition:
+            case is EndAnyFunctionDefinition:
                 stack.removeLast()
             case is CallFunction:
                 let f = instr.input(0)
@@ -70,19 +69,18 @@ struct InliningReducer: Reducer {
     }
     
     func inline(_ function: Variable, in program: Program) -> Program {
-        let b = fuzzer.makeBuilder()
-        
+        let p = Program()
         var i = 0
         
         while i < program.size {
             let instr = program[i]
             
             if instr.numOutputs > 0 && instr.output == function {
-                assert(instr.operation is BeginFunctionDefinition)
+                assert(instr.operation is BeginAnyFunctionDefinition)
                 break
             }
             
-            b.append(instr)
+            p.append(instr)
             
             i += 1
         }
@@ -98,10 +96,10 @@ struct InliningReducer: Reducer {
         while i < program.size {
             let instr = program[i]
             
-            if instr.operation is BeginFunctionDefinition {
+            if instr.operation is BeginAnyFunctionDefinition {
                 depth += 1
             }
-            if instr.operation is EndFunctionDefinition {
+            if instr.operation is EndAnyFunctionDefinition {
                 if depth == 0 {
                     i += 1
                     break
@@ -127,7 +125,7 @@ struct InliningReducer: Reducer {
             
             assert(!instr.inputs.contains(function))
             
-            b.append(instr)
+            p.append(instr)
             i += 1
         }
         
@@ -137,7 +135,7 @@ struct InliningReducer: Reducer {
         // Reuse the function variable to store 'undefined' and use that as
         // initial value of the return variable and for missing arguments.
         let undefined = funcDefinition.output
-        b.append(Instruction(operation: LoadUndefined(), output: undefined))
+        p.append(Instruction(operation: LoadUndefined(), output: undefined))
         
         var arguments = VariableMap<Variable>()
         for (i, v) in parameters.enumerated() {
@@ -149,17 +147,17 @@ struct InliningReducer: Reducer {
         }
         
         let rval = call.output
-        b.append(Instruction(operation: Phi(), output: rval, inputs: [undefined]))
+        p.append(Instruction(operation: Phi(), output: rval, inputs: [undefined]))
 
         for instr in functionBody {
-            let fixedInouts = instr.inouts.map { arguments[$0] ?? $0 }
-            let fixedInstr = Instruction(operation: instr.operation, inouts: fixedInouts)
+            let newInouts = instr.inouts.map { arguments[$0] ?? $0 }
+            let newInstr = Instruction(operation: instr.operation, inouts: newInouts)
             
             // Return is converted to an assignment to the return value
             if instr.operation is Return {
-                b.copy(fixedInstr.input(0), to: rval)
+                p.append(Instruction(operation: Copy(), inputs: [rval, newInstr.input(0)]))
             } else {
-                b.append(fixedInstr)
+                p.append(newInstr)
             }
         }
         
@@ -168,12 +166,12 @@ struct InliningReducer: Reducer {
         // Copy remaining instructions
         while i < program.size {
             assert(!program[i].inputs.contains(function))
-            b.append(program[i])
+            p.append(program[i])
             i += 1
         }
         
-        let result = b.finish()
-        assert(result.check() == .valid)
-        return result
+        // Due to the way the reducers work, they will produce otherwise valid programs, but with variable holes, so we don't check for those. The holes will be removed after minimization is done.
+        assert(p.check(checkForVariableHoles: false) == .valid)
+        return p
     }
 }

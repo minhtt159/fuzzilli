@@ -21,7 +21,7 @@ class InliningTests: XCTestCase {
 
         var b = fuzzer.makeBuilder()
 
-        let f = b.defineFunction(withSignature: FunctionSignature(withParameterCount: 3)) { args in
+        let f = b.definePlainFunction(withSignature: FunctionSignature(withParameterCount: 3)) { args in
             b.beginIf(args[0]) {
                 b.doReturn(value: args[1])
             }
@@ -37,9 +37,9 @@ class InliningTests: XCTestCase {
 
         let program = b.finish()
 
-        let reducer = InliningReducer(fuzzer)
+        let reducer = InliningReducer()
         let inlinedProgram = reducer.inline(f, in: program)
-        XCTAssert(inlinedProgram.check() == .valid)
+        XCTAssert(inlinedProgram.check(checkForVariableHoles: false) == .valid)
 
         // Inlining might leave holes in the variable space so the program must now be normalized.
         inlinedProgram.normalize()
@@ -63,7 +63,7 @@ class InliningTests: XCTestCase {
 
         let referenceProgram = b.finish()
 
-        XCTAssert(areStructurallyEqual(inlinedProgram, referenceProgram))
+        XCTAssertEqual(inlinedProgram, referenceProgram)
     }
 }
 

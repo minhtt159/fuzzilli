@@ -21,32 +21,34 @@ public class Operation {
     let attributes: Attributes
     
     /// The number of input variables to this operation.
-    let numInputs: Int
+    private let numInputs_: UInt16
+    var numInputs: Int {
+        return Int(numInputs_)
+    }
     
     /// The number of newly created variables in the current scope.
-    let numOutputs: Int
+    private let numOutputs_: UInt16
+    var numOutputs: Int {
+        return Int(numOutputs_)
+    }
     
     /// The number of newly created variables in the inner scope if one is created.
-    let numInnerOutputs: Int
-
-    /// The unique id of this operation's type.
-    var typeId: Int {
-        // Slight hack here with the forced downcast, but should be fine or at
-        // least crash during unit testing.
-        return (self as! TypeIdentifiable).typeId
+    private let numInnerOutputs_: UInt16
+    var numInnerOutputs: Int {
+        return Int(numInnerOutputs_)
     }
 
     fileprivate init(numInputs: Int, numOutputs: Int, numInnerOutputs: Int = 0, attributes: Attributes = []) {
         self.attributes = attributes
-        self.numInputs = numInputs
-        self.numOutputs = numOutputs
-        self.numInnerOutputs = numInnerOutputs
+        self.numInputs_ = UInt16(numInputs)
+        self.numOutputs_ = UInt16(numOutputs)
+        self.numInnerOutputs_ = UInt16(numInnerOutputs)
     }
     
     /// Possible attributes of an operation.
     /// See Instruction.swift for an explanation of each of them.
     struct Attributes: OptionSet {
-        let rawValue: Int
+        let rawValue: UInt16
         
         static let isPrimitive        = Attributes(rawValue: 1 << 0)
         static let isLiteral          = Attributes(rawValue: 1 << 1)
@@ -63,26 +65,13 @@ public class Operation {
     }
 }
 
-/// A helper protocol for types that can be identified by a unique ID.
-protocol TypeIdentifiable {
-    static var typeId: Int { get }
-}
-
-extension TypeIdentifiable {
-    var typeId: Int {
-        return Self.typeId
-    }
-}
-
-class Nop: Operation, TypeIdentifiable {
-    static let typeId = 0
+class Nop: Operation {    
     init() {
         super.init(numInputs: 0, numOutputs: 0, attributes: [.isPrimitive])
     }
 }
 
-class LoadInteger: Operation, TypeIdentifiable {
-    static let typeId = 1
+class LoadInteger: Operation {
     let value: Int
     
     init(value: Int) {
@@ -91,8 +80,7 @@ class LoadInteger: Operation, TypeIdentifiable {
     }
 }
 
-class LoadFloat: Operation, TypeIdentifiable {
-    static let typeId = 2
+class LoadFloat: Operation {
     let value: Double
     
     init(value: Double) {
@@ -101,8 +89,7 @@ class LoadFloat: Operation, TypeIdentifiable {
     }
 }
 
-class LoadString: Operation, TypeIdentifiable {
-    static let typeId = 3
+class LoadString: Operation {
     let value: String
     
     init(value: String) {
@@ -111,8 +98,7 @@ class LoadString: Operation, TypeIdentifiable {
     }
 }
 
-class LoadBoolean: Operation, TypeIdentifiable {
-    static let typeId = 4
+class LoadBoolean: Operation {
     let value: Bool
     
     init(value: Bool) {
@@ -121,22 +107,19 @@ class LoadBoolean: Operation, TypeIdentifiable {
     }
 }
 
-class LoadUndefined: Operation, TypeIdentifiable {
-    static let typeId = 5
+class LoadUndefined: Operation {
     init() {
         super.init(numInputs: 0, numOutputs: 1, attributes: [.isPrimitive, .isLiteral])
     }
 }
 
-class LoadNull: Operation, TypeIdentifiable {
-    static let typeId = 6
+class LoadNull: Operation {
     init() {
         super.init(numInputs: 0, numOutputs: 1, attributes: [.isPrimitive, .isLiteral])
     }
 }
 
-class CreateObject: Operation, TypeIdentifiable {
-    static let typeId = 7
+class CreateObject: Operation {
     let propertyNames: [String]
     
     init(propertyNames: [String]) {
@@ -149,8 +132,7 @@ class CreateObject: Operation, TypeIdentifiable {
     }
 }
 
-class CreateArray: Operation, TypeIdentifiable {
-    static let typeId = 8
+class CreateArray: Operation {
     var numInitialValues: Int {
         return numInputs
     }
@@ -160,8 +142,7 @@ class CreateArray: Operation, TypeIdentifiable {
     }
 }
 
-class CreateObjectWithSpread: Operation, TypeIdentifiable {
-    static let typeId = 9
+class CreateObjectWithSpread: Operation {
     // The property names of the "regular" properties. The remaining input values will be spread.
     let propertyNames: [String]
     
@@ -179,8 +160,7 @@ class CreateObjectWithSpread: Operation, TypeIdentifiable {
     }
 }
 
-class CreateArrayWithSpread: Operation, TypeIdentifiable {
-    static let typeId = 10
+class CreateArrayWithSpread: Operation {
     // Which inputs to spread.
     let spreads: [Bool]
     
@@ -191,8 +171,7 @@ class CreateArrayWithSpread: Operation, TypeIdentifiable {
     }
 }
 
-class LoadBuiltin: Operation, TypeIdentifiable {
-    static let typeId = 11
+class LoadBuiltin: Operation {
     let builtinName: String
     
     init(builtinName: String) {
@@ -201,8 +180,7 @@ class LoadBuiltin: Operation, TypeIdentifiable {
     }
 }
 
-class LoadProperty: Operation, TypeIdentifiable {
-    static let typeId = 12
+class LoadProperty: Operation {
     let propertyName: String
     
     init(propertyName: String) {
@@ -211,8 +189,7 @@ class LoadProperty: Operation, TypeIdentifiable {
     }
 }
 
-class StoreProperty: Operation, TypeIdentifiable {
-    static let typeId = 13
+class StoreProperty: Operation {
     let propertyName: String
 
     init(propertyName: String) {
@@ -221,8 +198,7 @@ class StoreProperty: Operation, TypeIdentifiable {
     }
 }
 
-class DeleteProperty: Operation, TypeIdentifiable {
-    static let typeId = 14
+class DeleteProperty: Operation {
     let propertyName: String
     
     init(propertyName: String) {
@@ -231,8 +207,7 @@ class DeleteProperty: Operation, TypeIdentifiable {
     }
 }
 
-class LoadElement: Operation, TypeIdentifiable {
-    static let typeId = 15
+class LoadElement: Operation {
     let index: Int
     
     init(index: Int) {
@@ -241,8 +216,7 @@ class LoadElement: Operation, TypeIdentifiable {
     }
 }
 
-class StoreElement: Operation, TypeIdentifiable {
-    static let typeId = 16
+class StoreElement: Operation {
     let index: Int
     
     init(index: Int) {
@@ -251,8 +225,7 @@ class StoreElement: Operation, TypeIdentifiable {
     }
 }
 
-class DeleteElement: Operation, TypeIdentifiable {
-    static let typeId = 17
+class DeleteElement: Operation {
     let index: Int
     
     init(index: Int) {
@@ -261,81 +234,109 @@ class DeleteElement: Operation, TypeIdentifiable {
     }
 }
 
-class LoadComputedProperty: Operation, TypeIdentifiable {
-    static let typeId = 18
+class LoadComputedProperty: Operation {
     init() {
         super.init(numInputs: 2, numOutputs: 1)
     }
 }
 
-class StoreComputedProperty: Operation, TypeIdentifiable {
-    static let typeId = 19
+class StoreComputedProperty: Operation {
     init() {
         super.init(numInputs: 3, numOutputs: 0)
     }
 }
 
-class DeleteComputedProperty: Operation, TypeIdentifiable {
-    static let typeId = 20
+class DeleteComputedProperty: Operation {
     init() {
         super.init(numInputs: 2, numOutputs: 0)
     }
 }
 
-class TypeOf: Operation, TypeIdentifiable {
-    static let typeId = 21
+class TypeOf: Operation {
     init() {
         super.init(numInputs: 1, numOutputs: 1)
     }
 }
 
-class InstanceOf: Operation, TypeIdentifiable {
-    static let typeId = 22
+class InstanceOf: Operation {
     init() {
         super.init(numInputs: 2, numOutputs: 1)
     }
 }
 
-class In: Operation, TypeIdentifiable {
-    static let typeId = 23
+class In: Operation {
     init() {
         super.init(numInputs: 2, numOutputs: 1)
     }
 }
 
-class BeginFunctionDefinition: Operation, TypeIdentifiable {
-    static let typeId = 24
+class BeginAnyFunctionDefinition: Operation {
     let signature: FunctionSignature
-    let isJSStrictMode: Bool
     
     /// Whether the last parameter is a rest parameter.
     var hasRestParam: Bool {
         return signature.inputTypes.last?.isList ?? false
     }
     
-    init(signature: FunctionSignature, isJSStrictMode: Bool) {
+    init(signature: FunctionSignature) {
         self.signature = signature
-        self.isJSStrictMode = isJSStrictMode
         super.init(numInputs: 0, numOutputs: 1, numInnerOutputs: signature.inputTypes.count, attributes: [.isBlockBegin])
     }
 }
 
-class Return: Operation, TypeIdentifiable {
-    static let typeId = 25
-    init() {
-        super.init(numInputs: 1, numOutputs: 0, attributes: [.isJump])
-    }
-}
-
-class EndFunctionDefinition: Operation, TypeIdentifiable {
-    static let typeId = 26
+class EndAnyFunctionDefinition: Operation {
     init() {
         super.init(numInputs: 0, numOutputs: 0, attributes: [.isBlockEnd])
     }
 }
 
-class CallMethod: Operation, TypeIdentifiable {
-    static let typeId = 27
+// A plain function
+class BeginPlainFunctionDefinition: BeginAnyFunctionDefinition {}
+class EndPlainFunctionDefinition: EndAnyFunctionDefinition {}
+
+// A ES5 strict mode function
+class BeginStrictFunctionDefinition: BeginAnyFunctionDefinition {}
+class EndStrictFunctionDefinition: EndAnyFunctionDefinition {}
+
+// A ES6 arrow function
+class BeginArrowFunctionDefinition: BeginAnyFunctionDefinition {}
+class EndArrowFunctionDefinition: EndAnyFunctionDefinition {}
+
+// A ES6 generator function
+class BeginGeneratorFunctionDefinition: BeginAnyFunctionDefinition {}
+class EndGeneratorFunctionDefinition: EndAnyFunctionDefinition {}
+
+// A ES6 async function
+class BeginAsyncFunctionDefinition: BeginAnyFunctionDefinition {}
+class EndAsyncFunctionDefinition: EndAnyFunctionDefinition {}
+
+class Return: Operation {
+    init() {
+        super.init(numInputs: 1, numOutputs: 0, attributes: [.isJump])
+    }
+}
+
+// A yield expression in JavaScript
+class Yield: Operation {
+    init() {
+        super.init(numInputs: 1, numOutputs: 0, attributes: [])
+    }
+}
+
+// A yield* expression in JavaScript
+class YieldEach: Operation {
+    init() {
+        super.init(numInputs: 1, numOutputs: 0, attributes: [])
+    }
+}
+
+class Await: Operation {
+    init() {
+        super.init(numInputs: 1, numOutputs: 1, attributes: [])
+    }
+}
+
+class CallMethod: Operation {
     let methodName: String
     var numArguments: Int {
         return numInputs - 1
@@ -348,8 +349,7 @@ class CallMethod: Operation, TypeIdentifiable {
     }
 }
 
-class CallFunction: Operation, TypeIdentifiable {
-    static let typeId = 28
+class CallFunction: Operation {
     var numArguments: Int {
         return numInputs - 1
     }
@@ -360,8 +360,7 @@ class CallFunction: Operation, TypeIdentifiable {
     }
 }
 
-class Construct: Operation, TypeIdentifiable {
-    static let typeId = 29
+class Construct: Operation {
     var numArguments: Int {
         return numInputs - 1
     }
@@ -372,8 +371,7 @@ class Construct: Operation, TypeIdentifiable {
     }
 }
 
-class CallFunctionWithSpread: Operation, TypeIdentifiable {
-    static let typeId = 30
+class CallFunctionWithSpread: Operation {
     // Which inputs to spread
     let spreads: [Bool]
     
@@ -400,10 +398,10 @@ public enum UnaryOperator: String {
     }
 }
 
+// This array must be kept in sync with the UnaryOperator Enum in operations.proto
 let allUnaryOperators: [UnaryOperator] = [.Inc, .Dec, .LogicalNot, .BitwiseNot]
 
-class UnaryOperation: Operation, TypeIdentifiable {
-    static let typeId = 31
+class UnaryOperation: Operation {
     let op: UnaryOperator
     
     init(_ op: UnaryOperator) {
@@ -425,16 +423,18 @@ public enum BinaryOperator: String {
     case Xor      = "^"
     case LShift   = "<<"
     case RShift   = ">>"
+    case Exp      = "**"
+    case UnRShift = ">>>"
     
     var token: String {
         return self.rawValue
     }
 }
 
-let allBinaryOperators: [BinaryOperator] = [.Add, .Sub, .Mul, .Div, .Mod, .BitAnd, .BitOr, .LogicAnd, .LogicOr, .LShift, .RShift]
+// This array must be kept in sync with the BinaryOperator Enum in operations.proto
+let allBinaryOperators: [BinaryOperator] = [.Add, .Sub, .Mul, .Div, .Mod, .BitAnd, .BitOr, .LogicAnd, .LogicOr, .LShift, .RShift, .Exp, .UnRShift]
 
-class BinaryOperation: Operation, TypeIdentifiable {
-    static let typeId = 32
+class BinaryOperation: Operation {
     let op: BinaryOperator
     
     init(_ op: BinaryOperator) {
@@ -444,25 +444,25 @@ class BinaryOperation: Operation, TypeIdentifiable {
 }
 
 /// This creates a variable that can be reassigned.
-class Phi: Operation, TypeIdentifiable {
-    static let typeId = 33
+class Phi: Operation {
     init() {
         super.init(numInputs: 1, numOutputs: 1)
     }
 }
 
 /// Reassigns an existing Phi variable.
-class Copy: Operation, TypeIdentifiable {
-    static let typeId = 34
+class Copy: Operation {
     init() {
         super.init(numInputs: 2, numOutputs: 0)
     }
 }
 
+// This array must be kept in sync with the Comparator Enum in operations.proto
 public enum Comparator: String {
     case equal              = "=="
     case strictEqual        = "==="
     case notEqual           = "!="
+    case strictNotEqual     = "!=="
     case lessThan           = "<"
     case lessThanOrEqual    = "<="
     case greaterThan        = ">"
@@ -473,46 +473,41 @@ public enum Comparator: String {
     }
 }
 
-let allComparators: [Comparator] = [.equal, .strictEqual, .notEqual, .lessThan, .lessThanOrEqual, .greaterThan, .greaterThanOrEqual]
+let allComparators: [Comparator] = [.equal, .strictEqual, .notEqual, .strictNotEqual, .lessThan, .lessThanOrEqual, .greaterThan, .greaterThanOrEqual]
 
-class Compare: Operation, TypeIdentifiable {
-    static let typeId = 35
-    let comparator: Comparator
+class Compare: Operation {
+    let op: Comparator
     
     init(_ comparator: Comparator) {
-        self.comparator = comparator
+        self.op = comparator
         super.init(numInputs: 2, numOutputs: 1, attributes: [.isParametric])
     }
 }
 
-/// An operation that will be lowered to a given string. The string can use %@ placeholders which
+/// An operation that will be lifted to a given string. The string can use %@ placeholders which
 /// will be replaced by the input variables during lowering. Eval operations will also never be mutated.
-class Eval: Operation, TypeIdentifiable {
-    static let typeId = 36
-    let string: String
+class Eval: Operation {
+    let code: String
     
     init(_ string: String, numArguments: Int) {
-        self.string = string
+        self.code = string
         super.init(numInputs: numArguments, numOutputs: 0, numInnerOutputs: 0, attributes: [.isImmutable])
     }
 }
 
-class BeginWith: Operation, TypeIdentifiable {
-    static let typeId = 37
+class BeginWith: Operation {
     init() {
         super.init(numInputs: 1, numOutputs: 0, attributes: [.isBlockBegin])
     }
 }
 
-class EndWith: Operation, TypeIdentifiable {
-    static let typeId = 38
+class EndWith: Operation {
     init() {
         super.init(numInputs: 0, numOutputs: 0, attributes: [.isBlockEnd])
     }
 }
 
-class LoadFromScope: Operation, TypeIdentifiable {
-    static let typeId = 39
+class LoadFromScope: Operation {
     let id: String
     
     init(id: String) {
@@ -521,8 +516,7 @@ class LoadFromScope: Operation, TypeIdentifiable {
     }
 }
 
-class StoreToScope: Operation, TypeIdentifiable {
-    static let typeId = 40
+class StoreToScope: Operation {
     let id: String
     
     init(id: String) {
@@ -541,29 +535,25 @@ class ControlFlowOperation: Operation {
     }
 }
 
-class BeginIf: ControlFlowOperation, TypeIdentifiable {
-    static let typeId = 41
+class BeginIf: ControlFlowOperation {
     init() {
         super.init(numInputs: 1, attributes: [.isBlockBegin])
     }
 }
 
-class BeginElse: ControlFlowOperation, TypeIdentifiable {
-    static let typeId = 42
+class BeginElse: ControlFlowOperation {
     init() {
         super.init(numInputs: 0, attributes: [.isBlockEnd, .isBlockBegin])
     }
 }
 
-class EndIf: ControlFlowOperation, TypeIdentifiable {
-    static let typeId = 43
+class EndIf: ControlFlowOperation {
     init() {
         super.init(numInputs: 0, attributes: [.isBlockEnd])
     }
 }
 
-class BeginWhile: ControlFlowOperation, TypeIdentifiable {
-    static let typeId = 44
+class BeginWhile: ControlFlowOperation {
     let comparator: Comparator
     init(comparator: Comparator) {
         self.comparator = comparator
@@ -571,22 +561,19 @@ class BeginWhile: ControlFlowOperation, TypeIdentifiable {
     }
 }
 
-class EndWhile: ControlFlowOperation, TypeIdentifiable {
-    static let typeId = 45
+class EndWhile: ControlFlowOperation {
     init() {
         super.init(numInputs: 0, attributes: [.isBlockEnd, .isLoopEnd])
     }
 }
 
-class BeginDoWhile: ControlFlowOperation, TypeIdentifiable {
-    static let typeId = 46
+class BeginDoWhile: ControlFlowOperation {
     init() {
         super.init(numInputs: 0, attributes: [.isBlockBegin, .isLoopBegin])
     }
 }
 
-class EndDoWhile: ControlFlowOperation, TypeIdentifiable {
-    static let typeId = 47
+class EndDoWhile: ControlFlowOperation {
     let comparator: Comparator
     init(comparator: Comparator) {
         self.comparator = comparator
@@ -594,8 +581,7 @@ class EndDoWhile: ControlFlowOperation, TypeIdentifiable {
     }
 }
 
-class BeginFor: ControlFlowOperation, TypeIdentifiable {
-    static let typeId = 48
+class BeginFor: ControlFlowOperation {
     let comparator: Comparator
     let op: BinaryOperator
     init(comparator: Comparator, op: BinaryOperator) {
@@ -605,78 +591,67 @@ class BeginFor: ControlFlowOperation, TypeIdentifiable {
     }
 }
 
-class EndFor: ControlFlowOperation, TypeIdentifiable {
-    static let typeId = 49
+class EndFor: ControlFlowOperation {
     init() {
         super.init(numInputs: 0, attributes: [.isBlockEnd, .isLoopEnd])
     }
 }
 
-class BeginForIn: ControlFlowOperation, TypeIdentifiable {
-    static let typeId = 50
+class BeginForIn: ControlFlowOperation {
     init() {
         super.init(numInputs: 1, numInnerOutputs: 1, attributes: [.isBlockBegin, .isLoopBegin])
     }
 }
 
-class EndForIn: ControlFlowOperation, TypeIdentifiable {
-    static let typeId = 51
+class EndForIn: ControlFlowOperation {
     init() {
         super.init(numInputs: 0, attributes: [.isBlockEnd, .isLoopEnd])
     }
 }
 
-class BeginForOf: ControlFlowOperation, TypeIdentifiable {
-    static let typeId = 52
+class BeginForOf: ControlFlowOperation {
     init() {
         super.init(numInputs: 1, numInnerOutputs: 1, attributes: [.isBlockBegin, .isLoopBegin])
     }
 }
 
-class EndForOf: ControlFlowOperation, TypeIdentifiable {
-    static let typeId = 53
+class EndForOf: ControlFlowOperation {
     init() {
         super.init(numInputs: 0, attributes: [.isBlockEnd, .isLoopEnd])
     }
 }
 
-class Break: Operation, TypeIdentifiable {
-    static let typeId = 54
+class Break: Operation {
     init() {
         super.init(numInputs: 0, numOutputs: 0, attributes: [.isJump])
     }
 }
 
-class Continue: Operation, TypeIdentifiable {
-    static let typeId = 55
+class Continue: Operation {
     init() {
         super.init(numInputs: 0, numOutputs: 0, attributes: [.isJump])
     }
 }
 
-class BeginTry: ControlFlowOperation, TypeIdentifiable {
-    static let typeId = 56
+class BeginTry: ControlFlowOperation {
     init() {
         super.init(numInputs: 0, attributes: [.isBlockBegin])
     }
 }
 
-class BeginCatch: ControlFlowOperation, TypeIdentifiable {
-    static let typeId = 57
+class BeginCatch: ControlFlowOperation {
     init() {
         super.init(numInputs: 0, numInnerOutputs: 1, attributes: [.isBlockBegin, .isBlockEnd])
     }
 }
 
-class EndTryCatch: ControlFlowOperation, TypeIdentifiable {
-    static let typeId = 58
+class EndTryCatch: ControlFlowOperation {
     init() {
         super.init(numInputs: 0, attributes: [.isBlockEnd])
     }
 }
 
-class ThrowException: Operation, TypeIdentifiable {
-    static let typeId = 59
+class ThrowException: Operation {
     init() {
         super.init(numInputs: 1, numOutputs: 0, attributes: [.isJump])
     }
@@ -695,32 +670,28 @@ class InternalOperation: Operation {
 }
 
 /// Writes the argument to the output stream.
-class Print: InternalOperation, TypeIdentifiable {
-    static let typeId = 60
+class Print: InternalOperation {
     init() {
         super.init(numInputs: 1)
     }
 }
 
 /// Writes the type of the input value to the output stream.
-class InspectType: InternalOperation, TypeIdentifiable {
-    static let typeId = 61
+class InspectType: InternalOperation {
     init() {
         super.init(numInputs: 1)
     }
 }
 
 /// Writes the properties and methods of the input value to the output stream.
-class InspectValue: InternalOperation, TypeIdentifiable {
-    static let typeId = 62
+class InspectValue: InternalOperation {
     init() {
         super.init(numInputs: 1)
     }
 }
 
 /// Writes the globally accessible objects to the output stream.
-class EnumerateBuiltins: InternalOperation, TypeIdentifiable {
-    static let typeId = 63
+class EnumerateBuiltins: InternalOperation {
     init() {
         super.init(numInputs: 0)
     }
@@ -740,8 +711,16 @@ extension Operation {
 // TODO think of a better mechanism for this?
 func Matches(_ op1: Operation, _ op2: Operation) -> Bool {
     switch op1 {
-    case is BeginFunctionDefinition:
-        return op2 is EndFunctionDefinition
+    case is BeginPlainFunctionDefinition:
+        return op2 is EndPlainFunctionDefinition
+    case is BeginStrictFunctionDefinition:
+        return op2 is EndStrictFunctionDefinition
+    case is BeginArrowFunctionDefinition:
+        return op2 is EndArrowFunctionDefinition
+    case is BeginGeneratorFunctionDefinition:
+        return op2 is EndGeneratorFunctionDefinition
+    case is BeginAsyncFunctionDefinition:
+        return op2 is EndAsyncFunctionDefinition
     case is BeginWith:
         return op2 is EndWith
     case is BeginIf:

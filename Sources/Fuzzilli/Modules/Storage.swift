@@ -54,7 +54,7 @@ public class Storage: Module {
             logger.fatal("Failed to create storage directories. Is \(storageDir) writable by the current user?")
         }
 
-        fuzzer.events.CrashFound.observe { ev in
+        fuzzer.registerEventListener(for: fuzzer.events.CrashFound) { ev in
             let filename = "crash_\(String(currentMillis()))_\(ev.pid)_\(ev.behaviour.rawValue)_\(ev.signal).js"
             let fileURL: URL
             if ev.isUnique {
@@ -66,7 +66,7 @@ public class Storage: Module {
             self.storeProgram(code, to: fileURL)
         }
 
-        fuzzer.events.InterestingProgramFound.observe { ev in
+        fuzzer.registerEventListener(for: fuzzer.events.InterestingProgramFound) { ev in
             let filename = "sample_\(String(currentMillis())).js"
             let fileURL = URL(fileURLWithPath: "\(self.interestingDir)/\(filename)")
             let code = fuzzer.lifter.lift(ev.program, withOptions: .dumpTypes)
@@ -76,7 +76,7 @@ public class Storage: Module {
         // If enabled, export the current fuzzer state to disk in regular intervals.
         if let interval = stateExportInterval {
             fuzzer.timers.scheduleTask(every: interval, saveState)
-            fuzzer.events.Shutdown.observe(saveState)
+            fuzzer.registerEventListener(for: fuzzer.events.Shutdown, listener: saveState)
         }
 
         // If enabled, export fuzzing statistics to disk in regular intervals.
@@ -85,7 +85,7 @@ public class Storage: Module {
                 logger.fatal("Requested stats export but not Statistics module is active")
             }
             fuzzer.timers.scheduleTask(every: interval) { self.saveStatistics(stats) }
-            fuzzer.events.Shutdown.observe() { self.saveStatistics(stats) }
+            fuzzer.registerEventListener(for: fuzzer.events.Shutdown) { self.saveStatistics(stats) }
         }
     }
 
@@ -98,13 +98,10 @@ public class Storage: Module {
     }
 
     private func saveState() {
-        let state = fuzzer.exportState()
-        let encoder = JSONEncoder()
-
         do {
-            let data = try encoder.encode(state)
+            let state = try fuzzer.exportState()
             let url = URL(fileURLWithPath: self.stateFile)
-            try data.write(to: url)
+            try state.write(to: url)
         } catch {
             logger.error("Failed to write state to disk: \(error)")
         }
@@ -112,14 +109,13 @@ public class Storage: Module {
 
     private func saveStatistics(_ stats: Statistics) {
         let statsData = stats.compute()
-        let encoder = JSONEncoder()
 
         let formatter = ISO8601DateFormatter()
         formatter.timeZone = TimeZone.current
         let datetime = formatter.string(from: Date())
 
         do {
-            let data = try encoder.encode(statsData)
+            let data = try statsData.jsonUTF8Data()
             let url = URL(fileURLWithPath: "\(self.statisticsDir)/\(datetime).json")
             try data.write(to: url)
         } catch {
