@@ -69,6 +69,14 @@ public struct Fuzzilli_Protobuf_Instruction {
     set {_uniqueStorage()._operation = .loadInteger(newValue)}
   }
 
+  public var loadBigInt: Fuzzilli_Protobuf_LoadBigInt {
+    get {
+      if case .loadBigInt(let v)? = _storage._operation {return v}
+      return Fuzzilli_Protobuf_LoadBigInt()
+    }
+    set {_uniqueStorage()._operation = .loadBigInt(newValue)}
+  }
+
   public var loadFloat: Fuzzilli_Protobuf_LoadFloat {
     get {
       if case .loadFloat(let v)? = _storage._operation {return v}
@@ -107,6 +115,14 @@ public struct Fuzzilli_Protobuf_Instruction {
       return Fuzzilli_Protobuf_LoadNull()
     }
     set {_uniqueStorage()._operation = .loadNull(newValue)}
+  }
+
+  public var loadRegExp: Fuzzilli_Protobuf_LoadRegExp {
+    get {
+      if case .loadRegExp(let v)? = _storage._operation {return v}
+      return Fuzzilli_Protobuf_LoadRegExp()
+    }
+    set {_uniqueStorage()._operation = .loadRegExp(newValue)}
   }
 
   public var createObject: Fuzzilli_Protobuf_CreateObject {
@@ -621,6 +637,14 @@ public struct Fuzzilli_Protobuf_Instruction {
     set {_uniqueStorage()._operation = .throwException(newValue)}
   }
 
+  public var comment: Fuzzilli_Protobuf_Comment {
+    get {
+      if case .comment(let v)? = _storage._operation {return v}
+      return Fuzzilli_Protobuf_Comment()
+    }
+    set {_uniqueStorage()._operation = .comment(newValue)}
+  }
+
   public var nop: Fuzzilli_Protobuf_Nop {
     get {
       if case .nop(let v)? = _storage._operation {return v}
@@ -635,11 +659,13 @@ public struct Fuzzilli_Protobuf_Instruction {
     case opIdx(UInt32)
     /// TODO fixup keys
     case loadInteger(Fuzzilli_Protobuf_LoadInteger)
+    case loadBigInt(Fuzzilli_Protobuf_LoadBigInt)
     case loadFloat(Fuzzilli_Protobuf_LoadFloat)
     case loadString(Fuzzilli_Protobuf_LoadString)
     case loadBoolean(Fuzzilli_Protobuf_LoadBoolean)
     case loadUndefined(Fuzzilli_Protobuf_LoadUndefined)
     case loadNull(Fuzzilli_Protobuf_LoadNull)
+    case loadRegExp(Fuzzilli_Protobuf_LoadRegExp)
     case createObject(Fuzzilli_Protobuf_CreateObject)
     case createArray(Fuzzilli_Protobuf_CreateArray)
     case createObjectWithSpread(Fuzzilli_Protobuf_CreateObjectWithSpread)
@@ -704,6 +730,7 @@ public struct Fuzzilli_Protobuf_Instruction {
     case beginCatch(Fuzzilli_Protobuf_BeginCatch)
     case endTryCatch(Fuzzilli_Protobuf_EndTryCatch)
     case throwException(Fuzzilli_Protobuf_ThrowException)
+    case comment(Fuzzilli_Protobuf_Comment)
     case nop(Fuzzilli_Protobuf_Nop)
 
   #if !swift(>=4.1)
@@ -711,11 +738,13 @@ public struct Fuzzilli_Protobuf_Instruction {
       switch (lhs, rhs) {
       case (.opIdx(let l), .opIdx(let r)): return l == r
       case (.loadInteger(let l), .loadInteger(let r)): return l == r
+      case (.loadBigInt(let l), .loadBigInt(let r)): return l == r
       case (.loadFloat(let l), .loadFloat(let r)): return l == r
       case (.loadString(let l), .loadString(let r)): return l == r
       case (.loadBoolean(let l), .loadBoolean(let r)): return l == r
       case (.loadUndefined(let l), .loadUndefined(let r)): return l == r
       case (.loadNull(let l), .loadNull(let r)): return l == r
+      case (.loadRegExp(let l), .loadRegExp(let r)): return l == r
       case (.createObject(let l), .createObject(let r)): return l == r
       case (.createArray(let l), .createArray(let r)): return l == r
       case (.createObjectWithSpread(let l), .createObjectWithSpread(let r)): return l == r
@@ -780,6 +809,7 @@ public struct Fuzzilli_Protobuf_Instruction {
       case (.beginCatch(let l), .beginCatch(let r)): return l == r
       case (.endTryCatch(let l), .endTryCatch(let r)): return l == r
       case (.throwException(let l), .throwException(let r)): return l == r
+      case (.comment(let l), .comment(let r)): return l == r
       case (.nop(let l), .nop(let r)): return l == r
       default: return false
       }
@@ -814,11 +844,13 @@ extension Fuzzilli_Protobuf_Instruction: SwiftProtobuf.Message, SwiftProtobuf._M
     1: .same(proto: "inouts"),
     2: .same(proto: "opIdx"),
     5: .same(proto: "loadInteger"),
+    76: .same(proto: "loadBigInt"),
     6: .same(proto: "loadFloat"),
     7: .same(proto: "loadString"),
     8: .same(proto: "loadBoolean"),
     9: .same(proto: "loadUndefined"),
     10: .same(proto: "loadNull"),
+    77: .same(proto: "loadRegExp"),
     11: .same(proto: "createObject"),
     12: .same(proto: "createArray"),
     13: .same(proto: "createObjectWithSpread"),
@@ -883,6 +915,7 @@ extension Fuzzilli_Protobuf_Instruction: SwiftProtobuf.Message, SwiftProtobuf._M
     61: .same(proto: "beginCatch"),
     62: .same(proto: "endTryCatch"),
     63: .same(proto: "throwException"),
+    78: .same(proto: "comment"),
     64: .same(proto: "nop"),
   ]
 
@@ -1486,6 +1519,30 @@ extension Fuzzilli_Protobuf_Instruction: SwiftProtobuf.Message, SwiftProtobuf._M
           }
           try decoder.decodeSingularMessageField(value: &v)
           if let v = v {_storage._operation = .await(v)}
+        case 76:
+          var v: Fuzzilli_Protobuf_LoadBigInt?
+          if let current = _storage._operation {
+            try decoder.handleConflictingOneOf()
+            if case .loadBigInt(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {_storage._operation = .loadBigInt(v)}
+        case 77:
+          var v: Fuzzilli_Protobuf_LoadRegExp?
+          if let current = _storage._operation {
+            try decoder.handleConflictingOneOf()
+            if case .loadRegExp(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {_storage._operation = .loadRegExp(v)}
+        case 78:
+          var v: Fuzzilli_Protobuf_Comment?
+          if let current = _storage._operation {
+            try decoder.handleConflictingOneOf()
+            if case .comment(let m) = current {v = m}
+          }
+          try decoder.decodeSingularMessageField(value: &v)
+          if let v = v {_storage._operation = .comment(v)}
         default: break
         }
       }
@@ -1642,6 +1699,12 @@ extension Fuzzilli_Protobuf_Instruction: SwiftProtobuf.Message, SwiftProtobuf._M
         try visitor.visitSingularMessageField(value: v, fieldNumber: 74)
       case .await(let v)?:
         try visitor.visitSingularMessageField(value: v, fieldNumber: 75)
+      case .loadBigInt(let v)?:
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 76)
+      case .loadRegExp(let v)?:
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 77)
+      case .comment(let v)?:
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 78)
       case nil: break
       }
     }

@@ -195,6 +195,9 @@ public struct AbstractInterpreter {
         case is LoadInteger:
             set(instr.output, environment.intType)
             
+        case is LoadBigInt:
+            set(instr.output, environment.bigIntType)
+            
         case is LoadFloat:
             set(instr.output, environment.floatType)
             
@@ -209,6 +212,9 @@ public struct AbstractInterpreter {
             
         case is LoadNull:
             set(instr.output, .undefined)
+
+        case is LoadRegExp:
+            set(instr.output, environment.regExpType)
             
         case let op as CreateObject:
             var properties: [String] = []
@@ -287,14 +293,14 @@ public struct AbstractInterpreter {
                  .Exp,
                  .Div,
                  .Mod:
-                set(instr.output, .number)
+                set(instr.output, .number | .bigint)
             case .BitAnd,
                  .BitOr,
                  .Xor,
                  .LShift,
                  .RShift,
                  .UnRShift:
-                set(instr.output, .integer)
+                set(instr.output, .integer | .bigint)
             case .LogicAnd,
                  .LogicOr:
                 set(instr.output, .boolean)

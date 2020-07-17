@@ -14,10 +14,10 @@
 
 public class JavaScriptEnvironment: ComponentBase, Environment {
     // Possible return values of the 'typeof' operator.
-    public static let jsTypeNames = ["undefined", "boolean", "number", "string", "symbol", "function", "object"]
+    public static let jsTypeNames = ["undefined", "boolean", "number", "string", "symbol", "function", "object", "bigint"]
     
     // Integer values that are more likely to trigger edge-cases.
-    public let interestingIntegers = [-9007199254740993, -9007199254740992, -9007199254740991,          // Smallest integer value that is still precisely representable by a double
+    public let interestingIntegers: [Int64] = [-9007199254740993, -9007199254740992, -9007199254740991,          // Smallest integer value that is still precisely representable by a double
                                       -4294967297, -4294967296, -4294967295,                            // Negative Uint32 max
                                       -2147483649, -2147483648, -2147483647,                            // Int32 min
                                       -1073741824, -536870912, -268435456,                              // -2**32 / {4, 8, 16}
@@ -39,10 +39,15 @@ public class JavaScriptEnvironment: ComponentBase, Environment {
 
     // TODO more?
     public let interestingStrings = jsTypeNames
+
+    // TODO more?
+    public let interestingRegExps = [".*", "\\d*", "\\w*", "(.*)"]
     
     public var intType = Type.integer
+    public var bigIntType = Type.bigint
     public var floatType = Type.float
     public var booleanType = Type.boolean
+    public var regExpType = Type.jsRegExp
     public var stringType = Type.jsString
     public var arrayType = Type.jsArray
     public var objectType = Type.jsPlainObject
@@ -75,6 +80,8 @@ public class JavaScriptEnvironment: ComponentBase, Environment {
         registerObjectGroup(.jsStrings)
         registerObjectGroup(.jsPlainObjects)
         registerObjectGroup(.jsArrays)
+        registerObjectGroup(.jsPromises)
+        registerObjectGroup(.jsRegExps)
         registerObjectGroup(.jsFunctions)
         registerObjectGroup(.jsSymbols)
         registerObjectGroup(.jsMaps)
@@ -88,9 +95,11 @@ public class JavaScriptEnvironment: ComponentBase, Environment {
         registerObjectGroup(.jsDataViews)
         
         registerObjectGroup(.jsObjectConstructor)
+        registerObjectGroup(.jsPromiseConstructor)
         registerObjectGroup(.jsArrayConstructor)
         registerObjectGroup(.jsStringConstructor)
         registerObjectGroup(.jsSymbolConstructor)
+        registerObjectGroup(.jsBigIntConstructor)
         registerObjectGroup(.jsBooleanConstructor)
         registerObjectGroup(.jsNumberConstructor)
         registerObjectGroup(.jsMathObject)
@@ -112,6 +121,7 @@ public class JavaScriptEnvironment: ComponentBase, Environment {
         registerBuiltin("Boolean", ofType: .jsBooleanConstructor)
         registerBuiltin("Number", ofType: .jsNumberConstructor)
         registerBuiltin("Symbol", ofType: .jsSymbolConstructor)
+        registerBuiltin("BigInt", ofType: .jsBigIntConstructor)
         registerBuiltin("RegExp", ofType: .jsRegExpConstructor)
         registerBuiltin("ArrayBuffer", ofType: .jsArrayBufferConstructor)
         for variant in ["Uint8Array", "Int8Array", "Uint16Array", "Int16Array", "Uint32Array", "Int32Array", "Float32Array", "Float64Array", "Uint8ClampedArray"] {
@@ -254,11 +264,15 @@ public struct ObjectGroup {
 public extension Type {
     /// Type of a string in JavaScript.
     /// A JS string is both a string and an object on which methods can be called.
-    static let jsString = Type.string + Type.object(ofGroup: "String", withProperties: ["__proto__", "constructor", "length"], withMethods: ["charAt", "charCodeAt", "codePointAt", "concat", "includes", "endsWith", "indexOf", "lastIndexOf", "padEnd", "padStart", "repeat", "replace", "slice", "split", "startsWith", "substring", "trim"])
+    static let jsString = Type.string + Type.object(ofGroup: "String", withProperties: ["__proto__", "constructor", "length"], withMethods: ["charAt", "charCodeAt", "codePointAt", "concat", "includes", "endsWith", "indexOf", "lastIndexOf", "match", "matchAll", "padEnd", "padStart", "repeat", "replace", "search", "slice", "split", "startsWith", "substring", "trim"])
+    
+    /// Type of a regular expression in JavaScript.
+    /// A JS RegExp is both a RegExp and an object on which methods can be called.
+    static let jsRegExp = Type.regexp + Type.object(ofGroup: "RegExp", withProperties: ["__proto__", "flags", "dotAll", "global", "ignoreCase", "multiline", "source", "sticky", "unicode"], withMethods: ["compile", "exec", "test"])
     
     /// Type of a JavaScript Symbol.
     static let jsSymbol = Type.object(ofGroup: "Symbol", withProperties: ["__proto__", "description"])
-    
+
     /// Type of a plain JavaScript object.
     static let jsPlainObject = Type.object(ofGroup: "Object", withProperties: ["__proto__"])
     
@@ -267,6 +281,9 @@ public extension Type {
     
     /// Type of a JavaScript Map object.
     static let jsMap = Type.object(ofGroup: "Map", withProperties: ["__proto__", "size"], withMethods: ["clear", "delete", "entries", "forEach", "get", "has", "keys", "set", "values"])
+
+    /// Type of a JavaScript Promise object.
+    static let jsPromise = Type.object(ofGroup: "Promise", withProperties: ["__proto__"], withMethods: ["catch", "finally", "then"])
     
     /// Type of a JavaScript WeakMap object.
     static let jsWeakMap = Type.object(ofGroup: "WeakMap", withProperties: ["__proto__"], withMethods: ["delete", "get", "has", "set"])
@@ -314,9 +331,12 @@ public extension Type {
     
     /// Type of the JavaScript Symbol constructor builtin.
     static let jsSymbolConstructor = Type.function([.string] => .jsSymbol) + .object(ofGroup: "SymbolConstructor", withProperties: ["iterator", "asyncIterator", "match", "matchAll", "replace", "search", "split", "hasInstance", "isConcatSpreadable", "unscopable", "species", "toPrimitive", "toStringTag"], withMethods: ["for", "keyFor"])
+
+    /// Type of the JavaScript BigInt constructor builtin.
+    static let jsBigIntConstructor = Type.function([.number] => .bigint) + .object(ofGroup: "BigIntConstructor", withProperties: ["prototype"], withMethods: ["asIntN", "asUintN"])
     
     /// Type of the JavaScript RegExp constructor builtin.
-    static let jsRegExpConstructor = Type.jsFunction([.string] => .object())
+    static let jsRegExpConstructor = Type.jsFunction([.string] => .jsRegExp)
     
     /// Type of the JavaScript ArrayBuffer constructor builtin.
     static let jsArrayBufferConstructor = Type.constructor([.integer] => .jsArrayBuffer)
@@ -330,7 +350,7 @@ public extension Type {
     static let jsDataViewConstructor = Type.constructor([.object(ofGroup: "ArrayBuffer"), .opt(.integer), .opt(.integer)] => .jsDataView)
 
     /// Type of the JavaScript Promise constructor builtin.
-    static let jsPromiseConstructor = Type.unknown
+    static let jsPromiseConstructor = Type.constructor([.function()] => .jsPromise) + .object(ofGroup: "PromiseConstructor", withProperties: ["prototype"], withMethods: ["resolve", "reject", "all", "race", "allSettled"])
     
     /// Type of the JavaScript Proxy constructor builtin.
     static let jsProxyConstructor = Type.constructor([.object(), .object()] => .unknown)
@@ -422,14 +442,14 @@ public extension ObjectGroup {
             "endsWith"    : [.string, .opt(.integer)] => .boolean,
             "indexOf"     : [.anything, .opt(.integer)] => .integer,
             "lastIndexOf" : [.anything, .opt(.integer)] => .integer,
-            //"match"       : [.regex] => .jsString,
-            //"matchAll"    : [.regex], returns: .jsString),
+            "match"       : [.regexp] => .jsString,
+            "matchAll"    : [.regexp] => .jsString,
             //"normalize"   : [.string] => .jsString),
             "padEnd"      : [.integer, .opt(.string)] => .jsString,
             "padStart"    : [.integer, .opt(.string)] => .jsString,
             "repeat"      : [.integer] => .jsString,
             "replace"     : [.string, .string] => .jsString,
-            //"search"      : [.regex] => .integer,
+            "search"      : [.regexp] => .integer,
             "slice"       : [.integer, .opt(.integer)] => .jsString,
             "split"       : [.opt(.string), .opt(.integer)] => .jsArray,
             "startsWith"  : [.string, .opt(.integer)] => .boolean,
@@ -447,6 +467,42 @@ public extension ObjectGroup {
             "__proto__" : .object()
         ],
         methods: [:]
+    )
+
+    /// Object group modelling JavaScript regular expressions.
+    static let jsRegExps = ObjectGroup(
+        name: "RegExp",
+        instanceType: .jsRegExp,
+        properties: [
+            "__proto__"  : .object(),
+            "flags"      : .string,
+            "dotAll"     : .boolean,
+            "global"     : .boolean,
+            "ignoreCase" : .boolean,
+            "multiline"  : .boolean,
+            "source"     : .string,
+            "sticky"     : .boolean,
+            "unicode"    : .boolean,
+        ],
+        methods: [
+            "compile"    : [.string] => .jsRegExp,
+            "exec"       : [.string] => .jsArray,
+            "test"       : [.string] => .boolean,
+        ]
+    )
+
+    /// Object group modelling JavaScript promises.
+    static let jsPromises = ObjectGroup(
+        name: "Promise",
+        instanceType: .jsPromise,
+        properties: [
+            "__proto__" : .object(),
+        ],
+        methods: [
+            "catch"   : [.function()] => .jsPromise,
+            "then"    : [.function()] => .jsPromise,
+            "finally" : [.function()] => .jsPromise,
+        ]
     )
     
     /// Object group modelling JavaScript arrays
@@ -678,6 +734,21 @@ public extension ObjectGroup {
         ]
     )
     
+    /// ObjectGroup modelling the JavaScript Promise constructor builtin
+    static let jsPromiseConstructor = ObjectGroup(
+        name: "PromiseConstructor",
+        instanceType: .jsPromiseConstructor,
+        properties: [
+            "prototype" : .object()
+        ],
+        methods: [
+            "resolve"    : [.anything] => .jsPromise,
+            "reject"     : [.anything] => .jsPromise,
+            "all"        : [.object()] => .jsPromise,
+            "race"       : [.object()] => .jsPromise,
+            "allSettled" : [.object()] => .jsPromise,
+        ]
+    )
     
     /// ObjectGroup modelling the JavaScript Object constructor builtin
     static let jsObjectConstructor = ObjectGroup(
@@ -761,6 +832,19 @@ public extension ObjectGroup {
         methods: [
             "for"    : [.string] => .jsSymbol,
             "keyFor" : [.jsSymbol] => .jsString,
+        ]
+    )
+
+    /// Object group modelling the JavaScript BigInt constructor builtin
+    static let jsBigIntConstructor = ObjectGroup(
+        name: "BigIntConstructor",
+        instanceType: .jsBigIntConstructor,
+        properties: [
+            "prototype" : .object()
+        ],
+        methods: [
+            "asIntN"  : [.number, .bigint] => .bigint,
+            "asUintN" : [.number, .bigint] => .bigint,
         ]
     )
     

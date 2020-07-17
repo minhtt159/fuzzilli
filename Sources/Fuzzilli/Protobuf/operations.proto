@@ -21,6 +21,10 @@ message LoadInteger {
     int64 value = 1;
 }
 
+message LoadBigInt {
+    int64 value = 1;
+}
+
 message LoadFloat {
     double value = 1;
 }
@@ -37,6 +41,11 @@ message LoadUndefined {
 }
 
 message LoadNull {
+}
+
+message LoadRegExp {
+    string value = 1;
+    uint32 flags = 2;
 }
 
 message CreateObject {
@@ -291,6 +300,10 @@ message EndTryCatch {
 }
 
 message ThrowException {
+}
+
+message Comment {
+    string content = 1;
 }
 
 message Nop {

@@ -28,10 +28,18 @@ public class OperationMutator: BaseInstructionMutator {
         switch instr.operation {
         case is LoadInteger:
             newOp = LoadInteger(value: b.genInt())
+        case is LoadBigInt:
+            newOp = LoadBigInt(value: b.genInt())
         case is LoadFloat:
             newOp = LoadFloat(value: b.genFloat())
         case is LoadString:
             newOp = LoadString(value: b.genString())
+        case let op as LoadRegExp:
+            if probability(0.5) {
+                newOp = LoadRegExp(value: b.genRegExp(), flags: op.flags)
+            } else {
+                newOp = LoadRegExp(value: op.value, flags: b.genRegExpFlags())
+            }
         case let op as LoadBoolean:
             newOp = LoadBoolean(value: !op.value)
         case let op as CreateObject:

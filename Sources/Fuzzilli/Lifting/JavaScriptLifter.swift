@@ -123,6 +123,9 @@ public class JavaScriptLifter: ComponentBase, Lifter {
             case let op as LoadInteger:
                 output = NumberLiteral.new(String(op.value))
                 
+            case let op as LoadBigInt:
+                output = NumberLiteral.new(String(op.value) + "n")
+                
             case let op as LoadFloat:
                 if op.value.isNaN {
                     output = Identifier.new("NaN")
@@ -136,6 +139,10 @@ public class JavaScriptLifter: ComponentBase, Lifter {
                 
             case let op as LoadString:
                 output = Literal.new() <> "\"" <> op.value <> "\""
+
+            case let op as LoadRegExp:
+                let flags = op.flags.asString()
+                output = Literal.new() <> "/" <> op.value <> "/" <> flags
                 
             case let op as LoadBoolean:
                 output = Literal.new(op.value ? "true" : "false")
@@ -420,6 +427,9 @@ public class JavaScriptLifter: ComponentBase, Lifter {
                 
             case is ThrowException:
                 w.emit("throw \(input(0));")
+                
+            case let op as Comment:
+                w.emitComment(op.content)
                 
             case is Print:
                 w.emit("fuzzilli('FUZZILLI_PRINT', \(input(0)));")

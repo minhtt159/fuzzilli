@@ -18,6 +18,8 @@ import Fuzzilli
 let defaultCodeGenerators = WeightedList<CodeGenerator>([
     // Base generators
     (IntegerLiteralGenerator,            2),
+    (RegExpLiteralGenerator,             1),
+    (BigIntLiteralGenerator,             2),
     (FloatLiteralGenerator,              1),
     (StringLiteralGenerator,             1),
     (BooleanLiteralGenerator,            1),
@@ -86,4 +88,5 @@ let defaultCodeGenerators = WeightedList<CodeGenerator>([
     (ProxyGenerator,                     15),
     (LengthChangeGenerator,              5),
     (ElementKindChangeGenerator,         5),
+    (PromiseGenerator,                   3),
 ])

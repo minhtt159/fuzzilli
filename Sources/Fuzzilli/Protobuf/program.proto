@@ -26,11 +26,13 @@ message Instruction {
         uint32 opIdx = 2;
         // TODO fixup keys
         LoadInteger loadInteger = 5;
+        LoadBigInt loadBigInt = 76;
         LoadFloat loadFloat = 6;
         LoadString loadString = 7;
         LoadBoolean loadBoolean = 8;
         LoadUndefined loadUndefined = 9;
         LoadNull loadNull = 10;
+        LoadRegExp loadRegExp = 77;
         CreateObject createObject = 11;
         CreateArray createArray = 12;
         CreateObjectWithSpread createObjectWithSpread = 13;
@@ -95,6 +97,7 @@ message Instruction {
         BeginCatch beginCatch = 61;
         EndTryCatch endTryCatch = 62;
         ThrowException throwException = 63;
+        Comment comment = 78;
         Nop nop = 64;
     }
 }

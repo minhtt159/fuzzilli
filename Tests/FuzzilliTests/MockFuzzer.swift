@@ -15,13 +15,21 @@
 import Foundation
 @testable import Fuzzilli
 
+struct MockExecution: Execution {
+    let outcome: ExecutionOutcome
+    let stdout: String
+    let stderr: String
+    let fuzzout: String
+    let execTime: UInt
+}
+
 class MockScriptRunner: ScriptRunner {
     func run(_ script: String, withTimeout timeout: UInt32) -> Execution {
-        return Execution(pid: 1337,
-                         outcome: .succeeded,
-                         termsig: 0,
-                         output: "",
-                         execTime: 42)
+        return MockExecution(outcome: .succeeded,
+                             stdout: "",
+                             stderr: "",
+                             fuzzout: "",
+                             execTime: 42)
     }
     
     func setEnvironmentVariable(_ key: String, to value: String) {}
@@ -34,34 +42,24 @@ class MockScriptRunner: ScriptRunner {
 }
 
 class MockEnvironment: ComponentBase, Environment {
-    var interestingIntegers: [Int] = [1, 2, 3, 4]
-    
+    var interestingIntegers: [Int64] = [1, 2, 3, 4]
     var interestingFloats: [Double] = [1.1, 2.2, 3.3]
-    
     var interestingStrings: [String] = ["foo", "bar"]
-    
+    var interestingRegExps: [String] = ["foo", "bar"]
     
     var builtins: Set<String>
-    
     var methodNames = Set(["m1", "m2"])
-    
     var readPropertyNames = Set(["foo", "bar"])
-    
     var writePropertyNames = Set(["foo", "bar"])
-    
     var customPropertyNames = Set(["foo", "bar"])
     
-    
     var intType = Type.integer
-    
+    var bigIntType = Type.bigint
+    var regExpType = Type.regexp
     var floatType = Type.float
-    
     var booleanType = Type.boolean
-    
     var stringType = Type.string
-    
     var objectType = Type.object()
-    
     var arrayType = Type.object()
 
     func functionType(forSignature signature: FunctionSignature) -> Type {
@@ -194,6 +192,8 @@ func makeMockFuzzer(runner maybeRunner: ScriptRunner? = nil, environment maybeEn
 fileprivate let testCodeGenerators = WeightedList<CodeGenerator>([
     // Base generators
     (IntegerLiteralGenerator,            1),
+    (RegExpLiteralGenerator,             1),
+    (BigIntLiteralGenerator,             1),
     (FloatLiteralGenerator,              1),
     (StringLiteralGenerator,             1),
     (BooleanLiteralGenerator,            1),
@@ -259,4 +259,5 @@ fileprivate let testCodeGenerators = WeightedList<CodeGenerator>([
     (ProxyGenerator,                     1),
     (LengthChangeGenerator,              1),
     (ElementKindChangeGenerator,         1),
+    (PromiseGenerator,                   1),
     ])

@@ -72,9 +72,19 @@ class Nop: Operation {
 }
 
 class LoadInteger: Operation {
-    let value: Int
+    let value: Int64
     
-    init(value: Int) {
+    init(value: Int64) {
+        self.value = value
+        super.init(numInputs: 0, numOutputs: 1, attributes: [.isPrimitive, .isParametric, .isLiteral])
+    }
+}
+
+class LoadBigInt: Operation {
+    // This could be a bigger integer type, but it's most likely not worth the effort
+    let value: Int64
+    
+    init(value: Int64) {
         self.value = value
         super.init(numInputs: 0, numOutputs: 1, attributes: [.isPrimitive, .isParametric, .isLiteral])
     }
@@ -115,6 +125,55 @@ class LoadUndefined: Operation {
 
 class LoadNull: Operation {
     init() {
+        super.init(numInputs: 0, numOutputs: 1, attributes: [.isPrimitive, .isLiteral])
+    }
+}
+
+public struct RegExpFlags: OptionSet, Hashable {
+    public let rawValue: UInt32
+
+    public init(rawValue: UInt32) {
+        self.rawValue = rawValue
+    }
+
+    public func asString() -> String {
+        var strRepr = ""
+        for (flag, char) in RegExpFlags.flagToCharDict {
+            if contains(flag) {
+                strRepr += char
+            }
+        }
+        return strRepr
+    }
+
+    static let caseInsensitive = RegExpFlags(rawValue: 1 << 0)
+    static let global          = RegExpFlags(rawValue: 1 << 1)
+    static let multiline       = RegExpFlags(rawValue: 1 << 2)
+    static let dotall          = RegExpFlags(rawValue: 1 << 3)
+    static let unicode         = RegExpFlags(rawValue: 1 << 4)
+    static let sticky          = RegExpFlags(rawValue: 1 << 5)
+
+    public static func random() -> RegExpFlags {
+        return RegExpFlags(rawValue: UInt32.random(in: 0..<(1<<6)))
+    }
+
+    private static let flagToCharDict: [RegExpFlags:String] = [
+        .caseInsensitive: "i",
+        .global:          "g",
+        .multiline:       "m",
+        .dotall:          "s",
+        .unicode:         "u",
+        .sticky:          "y",
+    ]
+}
+
+class LoadRegExp: Operation {
+    let flags: RegExpFlags
+    let value: String
+
+    init(value: String, flags: RegExpFlags) {
+        self.value = value
+        self.flags = flags
         super.init(numInputs: 0, numOutputs: 1, attributes: [.isPrimitive, .isLiteral])
     }
 }
@@ -208,27 +267,27 @@ class DeleteProperty: Operation {
 }
 
 class LoadElement: Operation {
-    let index: Int
+    let index: Int64
     
-    init(index: Int) {
+    init(index: Int64) {
         self.index = index
         super.init(numInputs: 1, numOutputs: 1, attributes: [.isParametric])
     }
 }
 
 class StoreElement: Operation {
-    let index: Int
+    let index: Int64
     
-    init(index: Int) {
+    init(index: Int64) {
         self.index = index
         super.init(numInputs: 2, numOutputs: 0, attributes: [.isParametric])
     }
 }
 
 class DeleteElement: Operation {
-    let index: Int
+    let index: Int64
     
-    init(index: Int) {
+    init(index: Int64) {
         self.index = index
         super.init(numInputs: 1, numOutputs: 0, attributes: [.isParametric])
     }
@@ -654,6 +713,16 @@ class EndTryCatch: ControlFlowOperation {
 class ThrowException: Operation {
     init() {
         super.init(numInputs: 1, numOutputs: 0, attributes: [.isJump])
+    }
+}
+
+// Useful to attach miscellaneous information to a program
+class Comment: Operation {
+    let content: String
+    
+    init(_ content: String) {
+        self.content = content
+        super.init(numInputs: 0, numOutputs: 0, numInnerOutputs: 0, attributes: [.isImmutable])
     }
 }
 
